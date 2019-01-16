@@ -52,52 +52,10 @@ const struct DeviceInfo PROGMEM devinfo = {
 */
 typedef LibSPI<10> RadioSPI;
 typedef DualStatusLed<LED2_PIN, LED1_PIN> LedType;
-typedef StatusLed<BUZZER_PIN> BuzzerType;
-typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, 2> > BaseHal;
+typedef Buzzer<BUZZER_PIN> BuzzerType;
+typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, 2>, BuzzerType > Hal;
 
-class Buzzer: public BuzzerType {
-  private:
-    bool enabled;
-  public:
-    Buzzer () : enabled(false) {}
-    virtual ~Buzzer () {}
-
-    void Enabled(bool en) {
-    	enabled = en;
-    }
-
-	bool Enabled() {
-		return enabled;
-	}
-
-	void Buzz(unsigned long ticks) {
-	  if ( enabled == true )
-          this->ledOn(ticks);
-	}
-
-	void BuzzOn() {
-	  if ( enabled == true )
-          this->ledOn();
-	}
-
-	void BuzzOff() {
-      this->ledOff();
-	}
-};
-
-class Hal: public BaseHal {
-  public:
-	Buzzer buzzer;
-  public:
-    void init(const HMID& id) {
-      BaseHal::init(id);
-      buzzer.init();
-    }
-
-    bool runready () {
-      return sysclock.runready() || BaseHal::runready();
-    }
-} hal;
+Hal hal;
 
 DEFREGISTER(RFIDReg0, MASTERID_REGS, DREG_BUZZER_ENABLED)
 class RFIDList0 : public RegList0<RFIDReg0> {
@@ -128,7 +86,7 @@ class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDLi
 
     void configChanged() {
     	DPRINTLN("Config Changed List0");
-    	getHal().buzzer.Enabled(this->getList0().buzzerEnabled());
+    	buzzer().enabled(this->getList0().buzzerEnabled());
     }
 
     void initPins() {
