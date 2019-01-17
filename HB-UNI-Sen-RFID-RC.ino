@@ -25,8 +25,11 @@
 #define RFID_READER_CS_PIN    6
 #define RFID_READER_RESET_PIN 7
 #define CONFIG_BUTTON_PIN     8
+#define STANDBY_LED_PIN       14 //A0
 #define BUZZER_PIN            15 //A1
 
+#define STANDBY_LED_BLINK_MS     100
+#define STANDBY_LED_INTERVAL_S     5
 
 #define NUM_CHANNELS          8
 // number of available peers per channel
@@ -52,12 +55,29 @@ const struct DeviceInfo PROGMEM devinfo = {
 */
 typedef LibSPI<10> RadioSPI;
 typedef DualStatusLed<LED2_PIN, LED1_PIN> LedType;
+typedef StatusLed<STANDBY_LED_PIN> StandbyLedType;
 typedef Buzzer<BUZZER_PIN> BuzzerType;
-typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, 2>, BuzzerType > Hal;
+typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, 2>, BuzzerType > BaseHal;
 
-Hal hal;
 
-DEFREGISTER(RFIDReg0, MASTERID_REGS, DREG_BUZZER_ENABLED)
+class Hal: public BaseHal {
+  public:
+	StandbyLedType standbyLed;
+
+    void init(const HMID& id) {
+      BaseHal::init(id);
+    }
+
+    void standbyLedInvert(bool inv) {
+    	standbyLed.invert(inv);
+    }
+
+    bool runready () {
+      return sysclock.runready() || BaseHal::runready();
+    }
+} hal;
+
+DEFREGISTER(RFIDReg0, MASTERID_REGS, DREG_TRANSMITTRYMAX, DREG_BUZZER_ENABLED)
 class RFIDList0 : public RegList0<RFIDReg0> {
   public:
     RFIDList0 (uint16_t addr) : RegList0<RFIDReg0>(addr) {}
@@ -65,6 +85,7 @@ class RFIDList0 : public RegList0<RFIDReg0> {
     void defaults () {
       clear();
       buzzerEnabled(true);
+      transmitDevTryMax(2);
     }
 };
 
@@ -72,9 +93,22 @@ typedef RFIDChannel<Hal, PEERS_PER_CHANNEL, RFIDList0> RfidChannel;
 
 class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDList0> {
   public:
+	class StandbyLedAlarm : public Alarm {
+	 RFIDDev& dev;
+	public:
+	 StandbyLedAlarm (RFIDDev& d) : Alarm (seconds2ticks(STANDBY_LED_INTERVAL_S)), dev(d) {}
+	    virtual ~StandbyLedAlarm () {}
+        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
+          tick = (seconds2ticks(5));
+          dev.getHal().standbyLed.ledOn(millis2ticks(STANDBY_LED_BLINK_MS));
+	      clock.add(*this);
+	    }
+	} standbyLedAlarm;
+  public:
     typedef MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDList0> DevType;
-    RFIDDev (const DeviceInfo& i, uint16_t addr) : DevType(i, addr) {}
+    RFIDDev (const DeviceInfo& i, uint16_t addr) : DevType(i, addr), standbyLedAlarm(*this) {}
     virtual ~RFIDDev () {}
+
     // return rfid channel from 0 - n-1
     RfidChannel& rfidChannel (uint8_t num) {
       return channel(num + 1);
@@ -103,6 +137,8 @@ class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDLi
       mfrc522.PCD_Init();
       mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
       mfrc522.PCD_DumpVersionToSerial();
+      hal.standbyLed.init();
+      sysclock.add(standbyLedAlarm);
       return true;
     }
 };
