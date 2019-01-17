@@ -6,7 +6,13 @@
 
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
-// dom.GetObject("BidCos-RF.JPRFID0001:1.SUBMIT").State("0x03,0xfa,0x14,0x3c");
+
+// Steuerung mittels SUBMIT-Commands: dom.GetObject("BidCos-RF.<Device Serial>:<Ch#>.SUBMIT").State("<command>");
+// <command> Typen:
+// Setzen einer Chip ID:              0x08,0x15,0xca,0xfe
+// Löschen einer Chip ID:             0xcc
+// Erzwingen der Chip ID Übertragung: 0xfe
+// Invertieren der StandbyLed:        0xff,0x01 (invertiert) oder 0xff,0x00 (nicht invertiert)
 
 #define EI_NOTEXTERNAL
 #include <EnableInterrupt.h>
@@ -28,12 +34,12 @@
 #define STANDBY_LED_PIN       14 //A0
 #define BUZZER_PIN            15 //A1
 
-#define STANDBY_LED_BLINK_MS     100
-#define STANDBY_LED_INTERVAL_S     5
-
 #define NUM_CHANNELS          8
 // number of available peers per channel
 #define PEERS_PER_CHANNEL     10
+
+#define STANDBY_LED_BLINK_MS     100
+#define STANDBY_LED_INTERVAL_S   5
 
 MFRC522 mfrc522(RFID_READER_CS_PIN, RFID_READER_RESET_PIN);
 
