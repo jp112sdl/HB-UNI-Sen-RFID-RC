@@ -153,25 +153,22 @@ class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDLi
     }
 
     void initPins() {
+#ifndef USE_I2C_READER
       pinMode(RFID_READER_CS_PIN, OUTPUT);
       pinMode(RFID_READER_RESET_PIN, OUTPUT);
       digitalWrite(RFID_READER_CS_PIN, LOW);
       digitalWrite(RFID_READER_RESET_PIN, LOW);
+#endif
     }
 
     bool init(Hal& hal) {
-#ifndef USE_I2C_READER
       initPins();
-#endif
       DevType::init(hal);
       DPRINT(F("Init RFID... "));
       mfrc522.PCD_Init();
-      DPRINTLN(mfrc522.PCD_PerformSelfTest() == true ? "OK" : "FAILED"); //fails on I2C although the reader is working
-      mfrc522.PCD_Init();
+      byte readReg = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
       mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
-#ifndef USE_I2C_ADDR
-      mfrc522.PCD_DumpVersionToSerial();
-#endif
+      DPRINT("Firmware Version: 0x");DHEXLN(readReg);
       hal.standbyLed.init();
       sysclock.add(standbyLedAlarm);
       return true;
@@ -196,7 +193,7 @@ void setup () {
   }
   sdev.initDone();
   sysclock.add(scanner);
-  //sdev.buzzer().set(500,5);
+  sdev.buzzer().on(millis2ticks(100),millis2ticks(100),2);
 }
 
 void loop() {
