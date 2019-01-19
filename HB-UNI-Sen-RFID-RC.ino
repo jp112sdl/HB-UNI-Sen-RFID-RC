@@ -10,6 +10,9 @@
 // Löschen einer Chip ID:             0xcc
 // Erzwingen der Chip ID Übertragung: 0xfe
 // Invertieren der StandbyLed:        0xff,0x01 (invertiert) oder 0xff,0x00 (nicht invertiert)
+// Buzzer EIN (dauerhaft)             0xb1
+// Buzzer AUS                         0xb0
+// Buzzer Beep-Intervall endlos       0xba
 
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
