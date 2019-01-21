@@ -7,7 +7,7 @@ Dieses Projekt soll in Anlehnung an mein [Wemos-RFID-Alarmanlagen-Projekt](https
 #### Bauteile
 - 1x Arduino Pro Mini (3.3V / 8MHz)
 - 1x CC1101 868MHz Funkmodul
-- 1x MFRC522 RFID Reader 
+- 1x MFRC522 RFID Reader (z.B. [eBay](https://www.ebay.de/itm/252715001811))
 - 3x Widerstand 330 Ohm
 - 1x Duo-LED
 - 1x LED 
