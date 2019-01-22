@@ -17,7 +17,7 @@
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
 
-#define USE_CC1101_ALT_FREQ_86835 // workaround for bad working cc1101 modules
+// #define USE_CC1101_ALT_FREQ_86835 // workaround for bad working cc1101 modules
 
 // #define USE_I2C_READER //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
 
