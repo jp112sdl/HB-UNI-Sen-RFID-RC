@@ -6,7 +6,7 @@
 
 // Steuerung mittels SUBMIT-Commands: dom.GetObject("BidCos-RF.<Device Serial>:<Ch#>.SUBMIT").State("<command>");
 // <command> Typen:
-// Setzen einer Chip ID:              0x08,0x15,0xca,0xfe
+// Setzen einer  4 Byte Chip ID:      0x08,0x15,0xca,0xfe,0x00,0x00,0x00,0x00
 // Löschen einer Chip ID:             0xcc
 // Erzwingen der Chip ID Übertragung: 0xfe
 // Invertieren der StandbyLed:        0xff,0x01 (invertiert) oder 0xff,0x00 (nicht invertiert)
