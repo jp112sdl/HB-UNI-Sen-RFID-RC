@@ -4,6 +4,8 @@ _work in progress..._
 
 Dieses Projekt soll in Anlehnung an mein [Wemos-RFID-Alarmanlagen-Projekt](https://github.com/jp112sdl/WemosD1_HomeMatic_RFID) eine netzwerkinfrastrukturunabhängige Lösung bieten.
 
+Benötigt [JP-HB-Devices-addon](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) Version 1.29 oder neuer. 
+
 #### Bauteile
 - 1x Arduino Pro Mini (3.3V / 8MHz)
 - 1x CC1101 868MHz Funkmodul
