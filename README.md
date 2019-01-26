@@ -42,7 +42,9 @@ Das Absetzen der Befehle erfolgt aus einem Skript heraus allgemein mit<br/>
 |Invertieren der StandbyLed|`0xff,0x01` (invertiert) oder `0xff,0x00` (normal)|
 |Buzzer EIN (dauerhaft)|`0xb1`|
 |Buzzer AUS|`0xb0`|
-|Buzzer Beep Intervall endlos|`0xba`|
+|Buzzer Beep Intervall endlos`0xba`|
+|Buzzer Beep-Intervall endlos|`0xba,0x64,0x32` (Beep Tondauer = 100ms (0x64); Pausendauer = 50ms (0x32))|
+|Buzzer Beep-Intervall Anzahl|`0xba,0x28,0x28,0x0a` (Beep Tondauer = 40ms (0x28); Pausendauer = 40ms (0x28); Anzahl = 10 (0x0a))|
 
 Beispiel - Löschen der RFID Chip ID Kanal 4:<br>
 `dom.GetObject("BidCos-RF.JPRFID0001:4.SUBMIT").State("0xcc");`
