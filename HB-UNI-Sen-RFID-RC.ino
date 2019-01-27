@@ -6,13 +6,14 @@
 
 // Steuerung mittels SUBMIT-Commands: dom.GetObject("BidCos-RF.<Device Serial>:<Ch#>.SUBMIT").State("<command>");
 // <command> Typen:
-// Setzen einer  4 Byte Chip ID:      0x08,0x15,0xca,0xfe,0x00,0x00,0x00,0x00
+// Setzen einer  8 Byte Chip ID:      0x08,0x15,0xca,0xfe,0x00,0x00,0x00,0x00
 // Löschen einer Chip ID:             0xcc
 // Erzwingen der Chip ID Übertragung: 0xfe
 // Invertieren der StandbyLed:        0xff,0x01 (invertiert) oder 0xff,0x00 (nicht invertiert)
 // Buzzer EIN (dauerhaft)             0xb1
 // Buzzer AUS                         0xb0
-// Buzzer Beep-Intervall endlos       0xba
+// Buzzer Beep-Intervall endlos       0xba,0x01,0x02      (Beep Tondauer = 100ms (0x01); Pausendauer = 200ms (0x02))
+// Buzzer Beep-Intervall Anzahl       0xba,0x04,0x04,0x0a (Beep Tondauer = 400ms (0x04); Pausendauer = 400ms (0x04); Anzahl = 10 (0x0a))
 
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
@@ -52,6 +53,7 @@
 #define NUM_CHANNELS          8
 // number of available peers per channel
 #define PEERS_PER_CHANNEL     10
+#define CYCLETIME seconds2ticks(60UL*60) // hourly
 
 #define STANDBY_LED_BLINK_MS     100
 #define STANDBY_LED_INTERVAL_S   5
@@ -109,15 +111,18 @@ class Hal: public BaseHal {
     }
 } hal;
 
-DEFREGISTER(RFIDReg0, MASTERID_REGS, DREG_TRANSMITTRYMAX, DREG_BUZZER_ENABLED)
-class RFIDList0 : public RegList0<RFIDReg0> {
-  public:
-    RFIDList0 (uint16_t addr) : RegList0<RFIDReg0>(addr) {}
+DEFREGISTER(RFIDReg0, MASTERID_REGS, DREG_TRANSMITTRYMAX, DREG_CYCLICINFOMSG, DREG_BUZZER_ENABLED)
+class RFIDList0: public RegList0<RFIDReg0> {
+public:
+  RFIDList0(uint16_t addr) :
+    RegList0<RFIDReg0>(addr) {
+  }
 
     void defaults () {
       clear();
       buzzerEnabled(true);
       transmitDevTryMax(2);
+      cycleInfoMsg(true);
     }
 };
 
@@ -125,21 +130,42 @@ typedef RFIDChannel<Hal, PEERS_PER_CHANNEL, RFIDList0> RfidChannel;
 
 class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDList0> {
   public:
-    class StandbyLedAlarm : public Alarm {
-        RFIDDev& dev;
-      public:
-        StandbyLedAlarm (RFIDDev& d) : Alarm (seconds2ticks(STANDBY_LED_INTERVAL_S)), dev(d) {}
-        virtual ~StandbyLedAlarm () {}
-        void trigger (__attribute__ ((unused)) AlarmClock& clock)  {
-          tick = (seconds2ticks(5));
-          dev.getHal().standbyLed.ledOn(millis2ticks(STANDBY_LED_BLINK_MS));
-          clock.add(*this);
-        }
-    } standbyLedAlarm;
+    class StandbyLedAlarm: public Alarm {
+      RFIDDev& dev;
   public:
-    typedef MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDList0> DevType;
-    RFIDDev (const DeviceInfo& i, uint16_t addr) : DevType(i, addr), standbyLedAlarm(*this) {}
-    virtual ~RFIDDev () {}
+      StandbyLedAlarm(RFIDDev& d) :
+          Alarm(seconds2ticks(STANDBY_LED_INTERVAL_S)), dev(d) {
+      }
+      virtual ~StandbyLedAlarm() {
+      }
+      void trigger(__attribute__ ((unused)) AlarmClock& clock) {
+        tick = (seconds2ticks(5));
+        dev.getHal().standbyLed.ledOn(millis2ticks(STANDBY_LED_BLINK_MS));
+        clock.add(*this);
+      }
+    } standbyLedAlarm;
+    class CycleInfoAlarm: public Alarm {
+      RFIDDev& dev;
+    public:
+      CycleInfoAlarm(RFIDDev& d) :
+          Alarm(CYCLETIME), dev(d) {
+      }
+      virtual ~CycleInfoAlarm() {
+      }
+
+      void trigger(AlarmClock& clock) {
+        set(CYCLETIME);
+        clock.add(*this);
+        dev.rfidChannel(1).changed(true);
+      }
+    } cycleAlarm;
+public:
+  typedef MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDList0> DevType;
+  RFIDDev(const DeviceInfo& i, uint16_t addr) :
+      DevType(i, addr), standbyLedAlarm(*this), cycleAlarm(*this) {
+  }
+  virtual ~RFIDDev() {
+  }
 
     // return rfid channel from 0 - n-1
     RfidChannel& rfidChannel (uint8_t num) {
@@ -153,6 +179,16 @@ class RFIDDev : public MultiChannelDevice<Hal, RfidChannel, NUM_CHANNELS, RFIDLi
     void configChanged() {
       DPRINTLN("Config Changed List0");
       buzzer().enabled(this->getList0().buzzerEnabled());
+      if (this->getList0().cycleInfoMsg() == true) {
+        DPRINTLN("Activate Cycle Msg");
+        sysclock.cancel(cycleAlarm);
+        cycleAlarm.set(CYCLETIME);
+        sysclock.add(cycleAlarm);
+        rfidChannel(1).changed(true);
+      } else {
+        DPRINTLN("Deactivate Cycle Msg");
+        sysclock.cancel(cycleAlarm);
+      }
     }
 
     void initPins() {
