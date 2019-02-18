@@ -1,7 +1,5 @@
 # HB-UNI-Sen-RFID-RC
 
-_work in progress..._
-
 Dieses Projekt soll in Anlehnung an mein [Wemos-RFID-Alarmanlagen-Projekt](https://github.com/jp112sdl/WemosD1_HomeMatic_RFID) eine netzwerkinfrastrukturunabhängige Lösung bieten.
 
 Benötigt [JP-HB-Devices-addon](https://github.com/jp112sdl/JP-HB-Devices-addon/releases/latest) Version 1.29 oder neuer. 
