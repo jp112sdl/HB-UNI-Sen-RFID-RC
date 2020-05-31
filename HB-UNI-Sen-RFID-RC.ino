@@ -18,9 +18,8 @@
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
 
-// #define USE_CC1101_ALT_FREQ_86835 // workaround for bad working cc1101 modules
-
-// #define USE_I2C_READER //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
+// #define USE_I2C_READER // not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
+// #define USE_WIEGAND    // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
 
 #define EI_NOTEXTERNAL
 
@@ -29,8 +28,10 @@
 #ifdef USE_I2C_READER
 #include <Wire.h>
 #include <MFRC522_I2C.h>
-#else
+#elif !defined USE_WIEGAND
 #include <MFRC522.h>
+#elif defined USE_WIEGAND
+#include <Wiegand.h>
 #endif
 
 #include <AskSinPP.h>
@@ -41,6 +42,7 @@
 #include <MultiChannelDevice.h>
 #include <RFID.h>
 
+#define CC1101_GDO0_PIN       2 //change when using WIEGAND; it needs hw interrupt pins 2 and 3
 #define LED1_PIN              9
 #define LED2_PIN              4
 #define RFID_READER_CS_PIN    7
@@ -59,9 +61,13 @@
 #define STANDBY_LED_INTERVAL_S   5
 
 #ifdef USE_I2C_READER
-MFRC522 mfrc522(RFID_READER_I2C_ADDR, RFID_READER_RESET_PIN);
-#else
-MFRC522 mfrc522(RFID_READER_CS_PIN, RFID_READER_RESET_PIN);
+MFRC522 readerDevice(RFID_READER_I2C_ADDR, RFID_READER_RESET_PIN);
+#elif !defined USE_WIEGAND
+MFRC522 readerDevice(RFID_READER_CS_PIN, RFID_READER_RESET_PIN);
+#endif
+
+#ifdef USE_WIEGAND
+WIEGAND readerDevice;
 #endif
 
 // all library classes are placed in the namespace 'as'
@@ -84,7 +90,7 @@ typedef LibSPI<10> RadioSPI;
 typedef DualStatusLed<LED2_PIN, LED1_PIN> LedType;
 typedef StatusLed<STANDBY_LED_PIN> StandbyLedType;
 typedef Buzzer<BUZZER_PIN> BuzzerType;
-typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, 2>, BuzzerType > BaseHal;
+typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, CC1101_GDO0_PIN>, BuzzerType > BaseHal;
 
 
 class Hal: public BaseHal {
@@ -93,13 +99,6 @@ class Hal: public BaseHal {
 
     void init(const HMID& id) {
       BaseHal::init(id);
-
-#ifdef USE_CC1101_ALT_FREQ_86835
-      // 2165E8 == 868.35 MHz
-      radio.initReg(CC1101_FREQ2, 0x21);
-      radio.initReg(CC1101_FREQ1, 0x65);
-      radio.initReg(CC1101_FREQ0, 0xE8);
-#endif
     }
 
     void standbyLedInvert(bool inv) {
@@ -203,11 +202,16 @@ public:
     bool init(Hal& hal) {
       initPins();
       DevType::init(hal);
-      DPRINT(F("Init RFID... "));
-      mfrc522.PCD_Init();
-      byte readReg = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
-      mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
+#ifdef USE_WIEGAND
+      DPRINTLN(F("Init WIEGAND Interface... "));
+      readerDevice.begin();
+#else
+      DPRINT(F("Init MFRC522 Reader... "));
+      readerDevice.PCD_Init();
+      byte readReg = readerDevice.PCD_ReadRegister(readerDevice.VersionReg);
+      readerDevice.PCD_SetAntennaGain(readerDevice.RxGain_max);
       DPRINT("Firmware Version: 0x");DHEXLN(readReg);
+#endif
       hal.standbyLed.init();
       sysclock.add(standbyLedAlarm);
       return true;
@@ -216,7 +220,7 @@ public:
 
 RFIDDev sdev(devinfo, 0x20);
 ConfigButton<RFIDDev> cfgBtn(sdev);
-RFIDScanner<RFIDDev, RfidChannel, mfrc522, LED2_PIN, LED1_PIN> scanner(sdev);
+RFIDScanner<RFIDDev, RfidChannel, readerDevice, LED2_PIN, LED1_PIN> scanner(sdev);
 
 void setup () {
 #ifdef USE_I2C_READER
