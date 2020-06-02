@@ -18,8 +18,9 @@
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
 
-// #define USE_I2C_READER // not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
-// #define USE_WIEGAND    // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
+// #define USE_I2C_READER //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
+
+#define USE_WIEGAND  // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
 
 #define EI_NOTEXTERNAL
 
@@ -28,10 +29,10 @@
 #ifdef USE_I2C_READER
 #include <Wire.h>
 #include <MFRC522_I2C.h>
-#elif !defined USE_WIEGAND
-#include <MFRC522.h>
 #elif defined USE_WIEGAND
 #include <Wiegand.h>
+#else
+#include <MFRC522.h>
 #endif
 
 #include <AskSinPP.h>
