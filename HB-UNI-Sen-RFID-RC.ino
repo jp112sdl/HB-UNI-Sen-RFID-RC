@@ -20,7 +20,7 @@
 
 // #define USE_I2C_READER //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
 
-#define USE_WIEGAND  // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
+// #define USE_WIEGAND  // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
                      // https://github.com/monkeyboard/Wiegand-Protocol-Library-for-Arduino
 
 #define EI_NOTEXTERNAL
