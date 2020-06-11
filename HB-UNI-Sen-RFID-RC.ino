@@ -18,22 +18,35 @@
 // define this to read the device id, serial and device type from bootloader section
 // #define USE_OTA_BOOTLOADER
 
-// #define USE_I2C_READER //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
+#define USE_MFRC522_SPI
+
+// #define USE_RDM6300
+
+// #define USE_MFRC522_I2C //not recommended when using 328P - not enough memory, https://github.com/arozcan/MFRC522-I2C-Library
 
 // #define USE_WIEGAND  // use a WIEGAND protocol based reader; change CC1101 GDO0 Pin at #define CC1101_GDO0_PIN below
-                     // https://github.com/monkeyboard/Wiegand-Protocol-Library-for-Arduino
+                        // https://github.com/monkeyboard/Wiegand-Protocol-Library-for-Arduino
 
-#define EI_NOTEXTERNAL
-
-#include <EnableInterrupt.h>
 #include <SPI.h>
-#ifdef USE_I2C_READER
+
+#ifndef USE_RDM6300
+#define EI_NOTEXTERNAL
+#include <EnableInterrupt.h>
+#endif
+
+#ifdef USE_MFRC522_I2C
 #include <Wire.h>
 #include <MFRC522_I2C.h>
-#elif defined USE_WIEGAND
+#endif
+#ifdef USE_WIEGAND
 #include <Wiegand.h>
-#else
+#endif
+#ifdef USE_MFRC522_SPI
 #include <MFRC522.h>
+#endif
+
+#ifdef USE_RDM6300
+#include <SoftwareSerial.h>
 #endif
 
 #include <AskSinPP.h>
@@ -47,12 +60,13 @@
 #define CC1101_GDO0_PIN       2 //change when using WIEGAND; it needs hw interrupt pins 2 and 3
 #define LED1_PIN              9
 #define LED2_PIN              4
-#define RFID_READER_CS_PIN    7
-#define RFID_READER_I2C_ADDR  0x28
-#define RFID_READER_RESET_PIN 6
+#define RFID_READER_CS_PIN    7 //only for MFRC522 reader
+#define RFID_READER_I2C_ADDR  0x28 //only for MFRC522 I2C reader
+#define RFID_READER_RESET_PIN 6 //only for MFRC522 readers
 #define CONFIG_BUTTON_PIN     8
 #define STANDBY_LED_PIN       14 //A0
 #define BUZZER_PIN            17 //A3
+#define RDM6300_RX_PIN        3 //only for RDM6300 reader
 
 #define NUM_CHANNELS          8
 // number of available peers per channel
@@ -62,14 +76,20 @@
 #define STANDBY_LED_BLINK_MS     100
 #define STANDBY_LED_INTERVAL_S   5
 
-#ifdef USE_I2C_READER
+#ifdef USE_MFRC522_I2C
 MFRC522 readerDevice(RFID_READER_I2C_ADDR, RFID_READER_RESET_PIN);
-#elif !defined USE_WIEGAND
+#endif
+
+#ifdef USE_MFRC522_SPI
 MFRC522 readerDevice(RFID_READER_CS_PIN, RFID_READER_RESET_PIN);
 #endif
 
 #ifdef USE_WIEGAND
 WIEGAND readerDevice;
+#endif
+
+#ifdef USE_RDM6300
+SoftwareSerial readerDevice(RDM6300_RX_PIN, -1);
 #endif
 
 // all library classes are placed in the namespace 'as'
@@ -93,7 +113,6 @@ typedef DualStatusLed<LED2_PIN, LED1_PIN> LedType;
 typedef StatusLed<STANDBY_LED_PIN> StandbyLedType;
 typedef Buzzer<BUZZER_PIN> BuzzerType;
 typedef AskSin<LedType, BatterySensor, Radio<RadioSPI, CC1101_GDO0_PIN>, BuzzerType > BaseHal;
-
 
 class Hal: public BaseHal {
   public:
@@ -193,7 +212,7 @@ public:
     }
 
     void initPins() {
-#ifndef USE_I2C_READER
+#ifndef USE_MFRC522_I2C
       pinMode(RFID_READER_CS_PIN, OUTPUT);
       pinMode(RFID_READER_RESET_PIN, OUTPUT);
       digitalWrite(RFID_READER_CS_PIN, LOW);
@@ -207,12 +226,16 @@ public:
 #ifdef USE_WIEGAND
       DPRINTLN(F("Init WIEGAND Interface... "));
       readerDevice.begin();
-#else
+#endif
+#if (defined(USE_MFRC522_I2C) || defined(USE_MFRC522_SPI))
       DPRINT(F("Init MFRC522 Reader... "));
       readerDevice.PCD_Init();
       byte readReg = readerDevice.PCD_ReadRegister(readerDevice.VersionReg);
       readerDevice.PCD_SetAntennaGain(readerDevice.RxGain_max);
       DPRINT("Firmware Version: 0x");DHEXLN(readReg);
+#endif
+#ifdef USE_RDM6300
+      readerDevice.begin(9600);
 #endif
       hal.standbyLed.init();
       sysclock.add(standbyLedAlarm);
@@ -225,16 +248,16 @@ ConfigButton<RFIDDev> cfgBtn(sdev);
 RFIDScanner<RFIDDev, RfidChannel, readerDevice, LED2_PIN, LED1_PIN> scanner(sdev);
 
 void setup () {
-#ifdef USE_I2C_READER
+#ifdef USE_MFRC522_I2C
   Wire.begin();
 #endif
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
   bool firstinit = sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
   if ( firstinit == true ) {
-    for (uint8_t i = 0; i < NUM_CHANNELS; i++)
+   /* for (uint8_t i = 0; i < NUM_CHANNELS; i++)
       //beim Starten alle Chip IDs an die CCU senden
-      sdev.rfidChannel(i).sendChipID();
+      sdev.rfidChannel(i).sendChipID(); */
   }
   sdev.initDone();
   sysclock.add(scanner);
@@ -242,9 +265,6 @@ void setup () {
 }
 
 void loop() {
-  bool worked = hal.runready();
-  bool poll = sdev.pollRadio();
-  if ( worked == false && poll == false ) {
-    hal.activity.savePower<Idle<>>(hal);
-  }
+  hal.runready();
+  sdev.pollRadio();
 }
