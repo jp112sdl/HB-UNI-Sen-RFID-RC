@@ -255,11 +255,9 @@ void setup () {
   DINIT(57600, ASKSIN_PLUS_PLUS_IDENTIFIER);
   bool firstinit = sdev.init(hal);
   buttonISR(cfgBtn, CONFIG_BUTTON_PIN);
-  if ( firstinit == true ) {
    /* for (uint8_t i = 0; i < NUM_CHANNELS; i++)
       //beim Starten alle Chip IDs an die CCU senden
       sdev.rfidChannel(i).sendChipID(); */
-  }
   sdev.initDone();
   sysclock.add(scanner);
   sdev.buzzer().on(millis2ticks(100),millis2ticks(100),2);
